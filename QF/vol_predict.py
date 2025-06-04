@@ -40,33 +40,37 @@ class VolPredictor:
         
         return data_df.iloc[window_size:]
     
-    def normalise_data(self, data_df, vol_window_days, scaler=None):
-        col_name = f'{self._VCOL_PREFIX}_{vol_window_days}'
+    def normalise_data(self, data_df, cols, scaler=None):
         if scaler:
             self.scaler = scaler
-            data_df[f'{self._FEATURE_PREFIX}_{col_name}'] = self.scaler.transform(data_df[col_name].values.reshape(-1, 1))
         else:
-            data_df[f'{self._FEATURE_PREFIX}_{col_name}'] = self.scaler.fit_transform(data_df[col_name].values.reshape(-1, 1))
+            self.scaler.fit(data_df[cols].values)
+        
+        names = []
+        for col in cols:
+            names.append(f'{self._FEATURE_PREFIX}_{col}')
+        
+        data_df[names] = self.scaler.transform(data_df[cols].values)
+        
         return data_df
 
-    def restruncture_data(self, data, vol_window_days, sequence_months, has_target=False):
+    def restruncture_data(self, data, vol_window_days, sequence_months, target_steps=0):
         sequence_length = sequence_months
         steps = vol_window_days
         X = []
         
-        if has_target:
+        num_samples = steps * (sequence_length - 1 + target_steps) + 1
+        max_start = len(data) - num_samples + 1
+
+        if target_steps:
             y = []
-            num_samples = steps * sequence_length + 1
-            max_start = len(data) - num_samples + 1
             for i in range(max_start):
                 X_indices = [i + j * steps for j in range(sequence_length)]
-                y_indices = i + steps * sequence_length
+                y_indices = i + steps * (sequence_length + target_steps - 1)
                 X.append(data[X_indices])
                 y.append(data[y_indices])
             return np.array(X), np.array(y)
         else:
-            num_samples = steps * (sequence_length - 1) + 1
-            max_start = len(data) - num_samples + 1 
             for i in range(max_start):
                 X_indices = [i + j*steps for j in range(sequence_length)]
                 X.append(data[X_indices])
@@ -78,9 +82,9 @@ class VolPredictor:
             denominator = (tf.abs(y_true) + tf.abs(y_pred)) / 2 + epsilon
             return tf.reduce_mean(numerator / denominator) * 100
     
-    def build_model(self, hp, sequence_length_months=6, num_outputs=1):  
+    def build_model(self, hp, sequence_length_months=6, num_features=1):  
         model = Sequential()
-        model.add(Input(shape=(sequence_length_months, num_outputs)))
+        model.add(Input(shape=(sequence_length_months, num_features)))
         
         num_layers = hp.Int("number of hidden layers", 1, 3)
         for i in range(num_layers):
@@ -101,7 +105,10 @@ class VolPredictor:
     
     def train_model(self, X, y, max_trials=20, model_path=None):
         log_dir = "./logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
-        tuner = BayesianOptimization(self.build_model,
+        sequence_length = X.shape[1]
+        num_features = X.shape[2]
+
+        tuner = BayesianOptimization(hypermodel=lambda hp: self.build_model(hp, sequence_length_months=sequence_length, num_features=num_features),
                                      objective=['val_loss'],
                                      max_trials=max_trials,
                                      num_initial_points=5,

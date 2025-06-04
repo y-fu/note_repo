@@ -34,7 +34,7 @@ def test_data_restructure_with_targets():
     expected_last_sample = [4, 6, 8]
     expected_last_target = [10]
 
-    X, y = predictor.restruncture_data(data=data, vol_window_days=steps, sequence_months=sequence_length, has_target=True)
+    X, y = predictor.restruncture_data(data=data, vol_window_days=steps, sequence_months=sequence_length, target_steps=1)
 
     assert len(X) == len(y)
     assert len(X) == expected_length, f'expect {expected_length} samples but has {len(X)} : {X}'
@@ -43,16 +43,9 @@ def test_data_restructure_with_targets():
     assert len(X[0]) == sequence_length
 
 def test_data_normalise_range():
-    sequence_length = 3
-    col_name = 'Rv_3'
-    data = pd.DataFrame(data=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], columns=[col_name])
-    scaled_data = predictor.normalise_data(data, sequence_length)
+    col_name = ['Rv_3']
+    data = pd.DataFrame(data=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], columns=col_name)
+    scaled_data = predictor.normalise_data(data, cols=col_name)
 
     assert max(scaled_data['Scaled_Rv_3']) <= 1
     assert max(scaled_data['Scaled_Rv_3']) >= 0
-
-    
-# test_missing_infinite_data()
-# test_data_restructure_without_targets()
-# test_data_restructure_with_targets()
-# test_data_normalise_range()
