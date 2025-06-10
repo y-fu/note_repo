@@ -4,7 +4,7 @@ import yfinance as yf
 import os
 from datetime import datetime
 from sklearn import preprocessing
-from sklearn.metrics import r2_score
+# from sklearn.metrics import r2_score
 from sklearn.model_selection import TimeSeriesSplit, ShuffleSplit
 from pandas.tseries.offsets import BDay
 import tensorflow as tf
@@ -51,7 +51,7 @@ class VolPredictor:
             names.append(f'{self._FEATURE_PREFIX}_{col}')
         
         data_df[names] = self.scaler.transform(data_df[cols].values)
-        
+
         return data_df
 
     def restruncture_data(self, data, vol_window_days, sequence_months, target_steps=0):
@@ -82,7 +82,7 @@ class VolPredictor:
             denominator = (tf.abs(y_true) + tf.abs(y_pred)) / 2 + epsilon
             return tf.reduce_mean(numerator / denominator) * 100
     
-    def build_model(self, hp, sequence_length_months=6, num_features=1):  
+    def build_model(self, hp, sequence_length_months=6, num_features=1, num_outputs=1):  
         model = Sequential()
         model.add(Input(shape=(sequence_length_months, num_features)))
         
@@ -95,7 +95,7 @@ class VolPredictor:
             model.add(Dropout(hp.Float(f'dropout_{i+1}', min_value=0.1, max_value=0.3, step=0.1)))
 
         # Output layer
-        model.add(Dense(1, activation='linear')) 
+        model.add(Dense(num_outputs, activation='linear')) 
 
         # Compile the model
         model.compile(optimizer=Adam(learning_rate=hp.Float('lr', min_value=1e-4, max_value=1e-2, sampling='log')), 
@@ -107,8 +107,9 @@ class VolPredictor:
         log_dir = "./logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
         sequence_length = X.shape[1]
         num_features = X.shape[2]
+        num_outputs = y.shape[1]
 
-        tuner = BayesianOptimization(hypermodel=lambda hp: self.build_model(hp, sequence_length_months=sequence_length, num_features=num_features),
+        tuner = BayesianOptimization(hypermodel=lambda hp: self.build_model(hp, sequence_length_months=sequence_length, num_features=num_features, num_outputs=num_outputs),
                                      objective=['val_loss'],
                                      max_trials=max_trials,
                                      num_initial_points=5,
