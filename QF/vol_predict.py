@@ -31,14 +31,11 @@ class VolPredictor:
          asset = self.get_asset(ticker)
          return asset.history(period=retrieve_period).reset_index()
     
-    def calculate_return_and_vol(self, data_df, window_size=21):
+    def calculate_return(self, data_df):
         data_df['Date'] = data_df['Date'].apply(lambda dt: dt.date())
         data_df['Log_Returns'] = np.log(data_df['Close'] / data_df['Close'].shift(1))
 
-        col_name = f'{self._VCOL_PREFIX}_{window_size}'
-        data_df[col_name] = data_df['Log_Returns'].rolling(window=window_size).std() * np.sqrt(252) # annulise daily volatility
-        
-        return data_df.iloc[window_size:]
+        return data_df
     
     def normalise_data(self, data_df, cols, scaler=None):
         if scaler:
