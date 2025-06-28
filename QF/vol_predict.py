@@ -119,7 +119,7 @@ class VolPredictor:
         os.makedirs(log_dir, exist_ok=True)
 
         # tscv = TimeSeriesSplit(n_splits=6)
-        ss = ShuffleSplit(n_splits=6, random_state=42, test_size=0.25)
+        ss = ShuffleSplit(n_splits=10, random_state=42, test_size=0.25)
         
         # for fold, (train_idx, val_idx)in enumerate(tscv.split(X)):
         for train_idx, val_idx in ss.split(X):
@@ -143,15 +143,12 @@ class VolPredictor:
         return keras.models.load_model(model_path, 
                                        custom_objects={"smape": self.smape})
 
-    def generate_model_performance(self, tuner, X_test, y_test, X_all, y_all):
-        trials = tuner.oracle.trials
-        models = tuner.get_best_models(num_models=len(trials))
-
+    def generate_model_performance(self, trials, models, X_test, y_test, X_all, y_all):
         trial_data = []
 
-        for trial_id, trial in tuner.oracle.trials.items():
-            trial_id = int(trial_id)
-
+        for trial_id in trials.keys():
+            trial = trials[trial_id]
+            trial_id = int(trial_id) #Convert string trial id to integer
             data = {
                 "trial_id":trial_id,
                 "score":trial.score
